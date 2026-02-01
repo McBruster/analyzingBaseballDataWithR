@@ -1,0 +1,64 @@
+install.packages(tidyverse, Lahman, ggplot2,dplyr)
+library(tidyverse)
+library(Lahman)
+ls("package:Lahman")
+head(AllstarFull)
+
+
+hof<- HallOfFame
+People("debut")
+colnames()
+
+merge(x = hof, y = People[ , c("playerID","debut", "finalGame")], by = "playerID", all.x=TRUE)
+
+
+hof <- hof%>%
+  mutate(MidCareer = (debut + finalGame)/ 2,
+	Era = cut(MidCareer, 
+		breaks = c(1800, 1900, 1919, 1941, 1960 , 1976, 1993, 2050),
+	labels = c("19th Century","Dead Ball","Lively Ball","Integration",
+			"Expansion","Free Agency","Long Ball")))
+
+
+
+
+
+
+
+
+> colnames(hof)
+[1] "playerID"    "yearID"      "votedBy"     "ballots"     "needed"      "votes"      
+[7] "inducted"    "category"    "needed_note"
+> final <- merge(x = hof, y = People[ , c("playerID","debut", "finalGame")], by = "playerID", all.x=TRUE)
+> colnames(final)
+ [1] "playerID"    "yearID"      "votedBy"     "ballots"     "needed"      "votes"      
+ [7] "inducted"    "category"    "needed_note" "debut"       "finalGame"  
+> hof <- final
+> hof.head
+Error: object 'hof.head' not found
+> colnames(head)
+NULL
+> colnames(hof)
+ [1] "playerID"    "yearID"      "votedBy"     "ballots"     "needed"      "votes"      
+ [7] "inducted"    "category"    "needed_note" "debut"       "finalGame"  
+> hof <- hof%>%
++   mutate(MidCareer = (debut + finalGame)/ 2,
++ Era = cut(MidCareer, 
++ breaks = c(1800, 1900, 1919, 1941, 1960 , 1976, 1993, 2050),
++ labels = c("19th Century","Dead Ball","Lively Ball","Integration",
++ "Expansion","Free Agency","Long Ball"))
++ )
+Error in `mutate()`:
+ℹ In argument: `MidCareer = (debut + finalGame)/2`.
+Caused by error in `debut + finalGame`:
+! non-numeric argument to binary operator
+Run `rlang::last_trace()` to see where the error occurred.
+> class(debut)
+Error: object 'debut' not found
+> class(hof$debut)
+[1] "character"
+> hof$debut <- as.numeric(as.factor(hof$debut))
+> class(hof$debut)
+[1] "numeric"
+> hof$finalGame <- as.numeric(as.factor(hof$finalGame))
+> 

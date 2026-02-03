@@ -1,0 +1,68 @@
+library(tidyverse)
+library(Lahman)
+library(abdwr3edata)
+
+data(package = "abdwr3edata")
+
+head(retro2016)
+
+retro2016 %>%
+    mutate(RUNS = away_score_ct + home_score_ct, 
+           HALF.INNING = paste(game_id, inn_ct, bat_home_id),
+           RUNS.SCORED = 
+               (bat_dest_id > 3)+ (run1_dest_id > 3)+
+               (run2_dest_id > 3)+ (run3_dest_id > 3)) -> retro2016
+
+data2016 <- retro2016
+
+data2016 %>%
+    group_by(HALF.INNING) %>%
+    summarize(Outs.Inning =sum(event_outs_ct),
+              Runs.Inning = sum(RUNS.SCORED),
+              Runs.Start = first(RUNS),
+              max.runs= (Runs.Inning + Runs.Start)) -> half_innings
+
+data2016 <- data2016 %>%
+    inner_join(half_innings, by ="HALF.INNING") %>%
+    mutate(runs.roi = max.runs - RUNS)
+
+data2016 <- data2016 %>%
+    mutate(bases = paste(ifelse(base1_run_id > '', 1, 0),
+                         ifelse(base2_run_id> '', 1, 0),
+                         ifelse(base3_run_id > '', 1, 0),sep = ""),
+    state = paste(bases, outs_ct))
+
+data2016 <- data2016 %>%
+    mutate(nrunner1 = 
+                as.numeric(run1_dest_id == 1 | bat_dest_id == 1),
+           nrunner2 =
+                as.numeric(run1_dest_id == 2 | run2_dest_id ==2| bat_dest_id == 2),
+            nrunner3 = 
+                as.numeric(run1_dest_id == 3 | run2_dest_id ==3| run3_dest_id == 3| bat_dest_id == 3),
+            nouts = outs_ct + event_outs_ct,
+            new.bases = paste(nrunner1, nrunner2, nrunner3, sep = ""),
+            new.state = paste(new.bases, nouts))
+
+data2016 <- data2016 %>%
+    filter((state != new.state) | (RUNS.SCORED >0))
+
+data2016c <- data2016 %>%
+    filter(Outs.Inning == 3)
+
+RUNS <- data2016c %>%
+    group_by(state) %>%
+    summarize(Mean = mean(runs.roi)) %>%
+    mutate(outs = substr(state, 5, 5)) %>%
+    arrange(outs)
+
+runs_out <- matrix(round(RUNS$Mean, 2),8 ,3)
+dimnames(runs_out) <- list(NULL, c("0 outs","1 out","2 outs"))
+dimnames(runs_out)[[2]]  <- c("0 outs","1 out","2 outs")
+dimnames(runs_out)[[1]] <- c("000","001","010","011","100","101","110","111")
+
+runs.2002 <- matrix(c(.51, 1.40, 1.14,  1.96, .90, 1.84, 1.51, 2.33,
+                    .27,  .94,  .68,  1.36, .54, 1.18,  .94, 1.51,
+                    .10,  .36,  .32,   .63, .23,  .52,  .45,  .78), 8 , 3)
+
+dimnames(runs.2002) <- dimnames(runs_out)
+cbind(runs_out, runs.2002)

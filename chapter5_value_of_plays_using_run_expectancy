@@ -7,24 +7,24 @@ data(package = "abdwr3edata")
 head(retro2016)
 
 retro2016 %>%
-    mutate(RUNS = away_score_ct + home_score_ct, 
-           HALF.INNING = paste(game_id, inn_ct, bat_home_id),
-           RUNS.SCORED = 
+    mutate(runs = away_score_ct + home_score_ct, 
+           half.inning = paste(game_id, inn_ct, bat_home_id),
+           runs.scored = 
                (bat_dest_id > 3)+ (run1_dest_id > 3)+
                (run2_dest_id > 3)+ (run3_dest_id > 3)) -> retro2016
 
 data2016 <- retro2016
 
 data2016 %>%
-    group_by(HALF.INNING) %>%
-    summarize(Outs.Inning =sum(event_outs_ct),
-              Runs.Inning = sum(RUNS.SCORED),
-              Runs.Start = first(RUNS),
-              max.runs= (Runs.Inning + Runs.Start)) -> half_innings
+    group_by(half.inning) %>%
+    summarize(outs.inning =sum(event_outs_ct),
+              runs.inning = sum(runs.scored),
+              runs.start = first(runs),
+              max.runs= (runs.inning + runs.start)) -> half_innings
 
 data2016 <- data2016 %>%
-    inner_join(half_innings, by ="HALF.INNING") %>%
-    mutate(runs.roi = max.runs - RUNS)
+    inner_join(half_innings, by ="half.inning") %>%
+    mutate(runs.roi = max.runs - runs)
 
 data2016 <- data2016 %>%
     mutate(bases = paste(ifelse(base1_run_id > '', 1, 0),
@@ -44,10 +44,10 @@ data2016 <- data2016 %>%
             new.state = paste(new.bases, nouts))
 
 data2016 <- data2016 %>%
-    filter((state != new.state) | (RUNS.SCORED >0))
+    filter((state != new.state) | (runs.scored >0))
 
 data2016c <- data2016 %>%
-    filter(Outs.Inning == 3)
+    filter(outs.inning == 3)
 
 RUNS <- data2016c %>%
     group_by(state) %>%
@@ -66,3 +66,48 @@ runs.2002 <- matrix(c(.51, 1.40, 1.14,  1.96, .90, 1.84, 1.51, 2.33,
 
 dimnames(runs.2002) <- dimnames(runs_out)
 cbind(runs_out, runs.2002)
+
+data2016 <- data2016 %>%
+    left_join(select(RUNS, -outs), by ="state") %>%
+    rename(runs.state= Mean) %>%
+    left_join (select(RUNS, -outs), by = c("new.state" = "state")) %>%
+    rename(runs.new.state = Mean) %>%
+    replace_na(list(runs.new.state= 0)) %>%
+    mutate(run_value = runs.new.state - runs.state + runs.scored)
+
+
+People %>%
+    filter(nameFirst== "Jose", nameLast == "Altuve") %>%
+    pull(retroID) -> altuve.id
+
+altuve <- data2016 %>%
+    filter(bat_id == altuve.id, bat_event_fl == TRUE)
+
+
+altuve %>%
+    select(state, new.state, run_value) %>%
+    slice(1:3)
+
+altuve %>%
+    group_by(bases) %>%
+    summarize(N = n())
+
+ggplot(altuve, aes(bases, run_value)) +
+    geom_jitter(width = 0.25, alpha = 0.5)+
+    geom_hline(yintercept = 0, color= "blue")+
+    xlab("runners")
+
+
+ggplot(altuve, aes(bases, run_value)) +
+    geom_jitter(width = 0.2, alpha = 0.5)+
+    geom_hline(yintercept = 0, color= "blue")+
+    xlab("runners")
+ggsave("altuve_stripchart_run_values.png", height = 1000, width = 2000, units="px")
+
+runs_altuve <- altuve %>%
+    group_by(bases) %>%
+    summarize(RUNS = sum(run_value), PA =n())
+
+sum(altuve$run_value)
+
+runs_altuve %>% summarize(RE24 = sum(RUNS))

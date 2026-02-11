@@ -6,14 +6,15 @@ data(package = "abdwr3edata")
 
 head(retro2016)
 
-retro2016 %>%
+data2016 <- retro2016
+
+data2016 %>%
     mutate(runs = away_score_ct + home_score_ct, 
            half.inning = paste(game_id, inn_ct, bat_home_id),
            runs.scored = 
                (bat_dest_id > 3)+ (run1_dest_id > 3)+
-               (run2_dest_id > 3)+ (run3_dest_id > 3)) -> retro2016
+               (run2_dest_id > 3)+ (run3_dest_id > 3)) -> data2016
 
-data2016 <- retro2016
 
 data2016 %>%
     group_by(half.inning) %>%
@@ -111,3 +112,140 @@ runs_altuve <- altuve %>%
 sum(altuve$run_value)
 
 runs_altuve %>% summarize(RE24 = sum(RUNS))
+
+data2016 %>% filter(bat_event_fl == TRUE) -> data2016b
+
+data2016b %>%
+    group_by(bat_id) %>%
+    summarize(RE24 = sum(run_value),
+              PA = length(run_value),
+              runs.start = sum(runs.state)) -> runs
+
+runs400 <- runs %>%
+    filter(PA>= 400)
+
+head(runs400)
+
+ggplot(runs400, aes(runs.start, RE24))+
+    geom_point()+
+    geom_smooth()+
+    geom_hline(yintercept=0, color= "blue") -> plot1
+
+plot1
+
+runs400 %>% 
+    inner_join(People, by= c("bat_id"="retroID")) -> runs400
+library(ggrepel)
+plot1 + 
+    geom_text_repel(data = filter(runs400, RE24 >= 40),
+                    aes(label= nameLast))
+    ggsave("runs_re24.png", height = 1000, width = 2000, units="px")
+
+
+data2016 %>%
+    inner_join(runs400, by= "bat_id") -> regulars
+
+regulars %>%
+    group_by(bat_id, bat_lineup_id) %>%
+    summarize(N = n()) %>%
+    arrange(desc(N)) %>%
+    mutate(position = first(bat_lineup_id)) -> positions
+
+
+runs400 %>% inner_join(positions, by ="bat_id") -> runs400
+
+ggplot(runs400, aes(runs.start, RE24, label= position)) +
+    geom_text() +
+    geom_hline(yintercept = 0, color = crcblue) +
+    geom_point(data = filter(runs400, bat_id == altuve.id), 
+               size = 4, shape = 16, color = crcblue)
+
+#value of a home runs
+data2016 %>% filter(event_cd == 23) -> home_runs
+
+home_runs %>%
+    select(state) %>% table()
+
+home_runs %>% 
+    select(state) %>%
+    table() %>%
+    prop.table() %>%
+    round(3)
+
+mean_hr <- home_runs %>%
+    summarize(mean_run_value = mean(run_value))
+
+mean_hr
+
+ggplot(home_runs, aes(run_value)) +
+    geom_histogram() +
+    geom_vline(data = mean_hr, aes(xintercept = mean_run_value),
+    color = crcblue, size = 1.5) +
+    annotate('text', 1.7, 2000, label = "mean run/nvalue", color= crcblue)
+
+home_runs %>% arrange(desc(run_value)) %>%
+    select(state, new.state, run_value) %>%
+    head(1)
+
+#value of a single
+data2016 %>% filter(event_cd == 20) -> singles
+
+singles %>%
+    select(state) %>% table()
+
+singles %>% 
+    select(state) %>%
+    table() %>%
+    prop.table() %>%
+    round(3)
+
+mean_singles <- singles %>%
+    summarize(mean_run_value = mean(run_value))
+
+mean_singles
+
+ggplot(singles, aes(run_value)) +
+    geom_histogram(bins = 40) +
+    geom_vline(data = mean_singles, aes(xintercept = mean_run_value),
+    color = crcblue, size = 1.5) +
+    annotate('text', 0.8, 4000, label = "mean run/nvalue", color= crcblue)
+
+singles %>% arrange(desc(run_value)) %>%
+    select(state, new.state, run_value) %>%
+    head(1)
+
+    singles %>% arrange(desc(run_value)) %>%
+    select(state, new.state, run_value) %>%
+    slice(1)
+
+singles %>% arrange(run_value) %>%
+    select(state, new.state, run_value) %>%
+    slice(1)
+
+#value of base stealing
+data2016 %>% filter(event_cd %in% c(4, 6)) -> stealing
+
+stealing %>%
+    group_by(event_cd) %>%
+    summarize(N =n()) %>%
+    mutate(pct=N/sum(N))
+stealing %>% group_by(state) %>% summarize(N=n())
+
+ggplot(stealing, aes(run_value, fill = factor(event_cd))) +
+    geom_histogram() +
+    scale_fill_manual(name = "event_cd", 
+    values = c(crcblue, "gray70"),
+    labels =c("stolen base (sb)", "caught stealing (cs)"))
+
+stealing %>% filter(state == "100 1") -> stealing.1001
+
+stealing.1001 %>%
+    group_by(event_cd) %>%
+    summarize(N =n()) %>%
+    mutate(pct=N/sum(N))
+
+stealing.1001 %>% group_by(new.state) %>% 
+    summarize(N=n()) %>% 
+    mutate(pct=N/sum(N))
+
+stealing.1001 %>% summarize(Mean = mean(run_value))
